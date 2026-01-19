@@ -4,7 +4,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", "-d", default="ICEWS14", type=str)
-args = vars(parser.parse_args())  # 得到参数字典
+args = vars(parser.parse_args())
 
 dataset = args['dataset']
 dataset_path = f'./{dataset}'
