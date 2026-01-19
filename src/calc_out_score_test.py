@@ -54,7 +54,7 @@ def calc_ent_out_score(data_snap_list: List[List[List[int]]], rules_dict: Dict[i
             s, p, o, t = quad
             cond_s = his_quad_arr[:, 0] == s
             cond_p = his_quad_arr[:, 1] == p
-            peer_ent = set(his_quad_arr[cond_s & cond_p, 2])  # 对等元素集合
+            peer_ent = set(his_quad_arr[cond_s & cond_p, 2])
             if not peer_ent or p not in rules_dict:  # 对等元素集合为空，或可利用规则集为空，认为是显著事件
                 out_score_snap.append(1)
                 continue
