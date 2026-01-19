@@ -2,10 +2,6 @@ import argparse
 
 
 def evaluate_rank_metrics(dataset, model):
-    """
-    从指定路径读取五元组文件（每行格式为：s\tr\to\tr\t rank），
-    计算 MRR、Hits@1、Hits@3、Hits@10 并输出。
-    """
     rank_file_path = f'../rank_file/{dataset}/{dataset}_{model}.txt'
 
     reciprocal_ranks = []
@@ -38,7 +34,7 @@ def evaluate_rank_metrics(dataset, model):
                 total += 1
 
         if total == 0:
-            print("文件中没有有效数据。")
+            print("There is no valid data in the file")
             return
 
         mrr = sum(reciprocal_ranks) / total
@@ -54,17 +50,10 @@ def evaluate_rank_metrics(dataset, model):
         print(f"Hits@10: {h10:.4f}")
 
     except Exception as e:
-        print(f"读取文件时出错: {e}")
+        print(f"An error occurred while reading the file: {e}")
 
 
 def evaluate_weighted_rank_metrics(dataset, model, bias):
-    """
-    从两个文件中读取排名和显著性信息，计算加权 MRR 和 Hits@k。
-    
-    参数:
-    rank_file_path (str): 排名文件路径，每行格式为 s\tr\to\tr\trank
-    strikingness_file_path (str): 显著性文件路径，每行格式为 s\tr\to\tr\tstrikingness
-    """
     rank_file_path = f'../rank_file/{dataset}/{dataset}_{model}.txt'
     strikingness_file_path = f'../data/{dataset}/0.01_0.1_200_0.4_0.4_0.2/test_extend.txt'
     stat_file_path = f'../data/{dataset}/stat.txt'
@@ -73,10 +62,8 @@ def evaluate_weighted_rank_metrics(dataset, model, bias):
         stat = f.read().strip().split('\t')
         rel_num = int(stat[1])
 
-    # 用于存储每个四元组的 strikingness
     strikingness_dict = {}
 
-    # 第一步：读取 strikingness 文件，构建四元组 -> strikingness 映射
     try:
         with open(strikingness_file_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -96,20 +83,18 @@ def evaluate_weighted_rank_metrics(dataset, model, bias):
                 except (ValueError, IndexError):
                     continue
     except Exception as e:
-        print(f"读取显著性文件出错: {e}")
+        print(f"Error occurred while reading the significance file: {e}")
         return
 
     if not strikingness_dict:
-        print("显著性文件中没有有效数据。")
+        print("There is no valid data in the significance file.")
         return
 
-    # 第二步：计算 strikingness 总和，用于归一化
     total_strikingness = sum(strikingness_dict.values())
     if total_strikingness == 0:
-        print("显著性总和为0，无法计算权重。")
+        print("The sum of significance is 0, thus the weight cannot be calculated.")
         return
 
-    # 第三步：读取排名文件，计算加权指标
     weighted_reciprocal_ranks = 0.0
     weighted_hits_at_1 = 0.0
     weighted_hits_at_3 = 0.0
@@ -144,14 +129,13 @@ def evaluate_weighted_rank_metrics(dataset, model, bias):
                 except (ValueError, IndexError):
                     continue
     except Exception as e:
-        print(f"读取排名文件出错: {e}")
+        print(f"Error occurred while reading the ranking file: {e}")
         return
 
     if total_samples == 0:
-        print("排名文件中没有有效数据。")
+        print("There is no valid data in the ranking file")
         return
 
-    # 第四步：输出结果
     if model != 'ICL' and model != 'GenTKG':
         print(f"WMRR: {weighted_reciprocal_ranks:.4f}")
     print(f"WHits@1: {weighted_hits_at_1:.4f}")

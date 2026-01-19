@@ -9,7 +9,6 @@ from temporal_walk import Temporal_Walk
 from rule_learning import Rule_Learner, rules_statistics
 
 
-# 为每个关系采样一定数量的时态随机游走，并生成规则，将规则的id信息和文字信息存储到两个文件中
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", "-d", default="", type=str)
 parser.add_argument("--rule_lengths", "-l", default="3", type=int, nargs="+")
@@ -17,7 +16,7 @@ parser.add_argument("--num_walks", "-n", default="100", type=int)
 parser.add_argument("--transition_distr", default="exp", type=str)
 parser.add_argument("--num_processes", "-p", default=1, type=int)
 parser.add_argument("--seed", "-s", default=6, type=int)
-parsed = vars(parser.parse_args())  # 得到参数字典
+parsed = vars(parser.parse_args())
 
 dataset = parsed["dataset"]
 rule_lengths = parsed["rule_lengths"]
@@ -28,13 +27,12 @@ num_processes = parsed["num_processes"]
 seed = parsed["seed"]
 
 dataset_dir = "../data/" + dataset + "/"
-data = Grapher(dataset_dir)  # 得到三个数据集所有的用id表示的二维四元组数组，包括反向四元组
+data = Grapher(dataset_dir)
 temporal_walk = Temporal_Walk(data.train_idx, data.inv_relation_id, transition_distr)
 rl = Rule_Learner(temporal_walk.edges, data.id2relation, data.inv_relation_id, dataset)
-all_relations = sorted(temporal_walk.edges)  # Learn for all relations, 关系id列表
+all_relations = sorted(temporal_walk.edges)
 
 
-# 对每个关系采样特定长度的特定数量游走，再生成对应的规则
 def learn_rules(i, num_relations):
     """
     Learn rules (multiprocessing possible).
@@ -62,7 +60,7 @@ def learn_rules(i, num_relations):
         for length in rule_lengths:
             it_start = time.time()
             for _ in range(num_walks):
-                walk_successful, walk = temporal_walk.sample_walk(length + 1, rel)  # 采样时态随机游走
+                walk_successful, walk = temporal_walk.sample_walk(length + 1, rel)
                 if walk_successful:
                     rl.create_rule(walk)
             it_end = time.time()
@@ -85,7 +83,7 @@ def learn_rules(i, num_relations):
 
 start = time.time()
 num_relations = len(all_relations) // num_processes
-output = Parallel(n_jobs=num_processes)(  # 并行执行
+output = Parallel(n_jobs=num_processes)(
     delayed(learn_rules)(i, num_relations) for i in range(num_processes)
 )
 end = time.time()
@@ -101,6 +99,6 @@ rl.rules_dict = all_rules
 rl.sort_rules_dict()
 dt = datetime.now()
 dt = dt.strftime("%d%m%y%H%M%S")
-rl.save_rules(dt, rule_lengths, num_walks, transition_distr, seed)  # 以id形式记录规则相关信息
-rl.save_rules_verbalized(dt, rule_lengths, num_walks, transition_distr, seed)  # 以文字形式记录规则相关信息
+rl.save_rules(dt, rule_lengths, num_walks, transition_distr, seed)
+rl.save_rules_verbalized(dt, rule_lengths, num_walks, transition_distr, seed)
 rules_statistics(rl.rules_dict)

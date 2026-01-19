@@ -55,14 +55,14 @@ def calc_ent_out_score(data_snap_list: List[List[List[int]]], rules_dict: Dict[i
             cond_s = his_quad_arr[:, 0] == s
             cond_p = his_quad_arr[:, 1] == p
             peer_ent = set(his_quad_arr[cond_s & cond_p, 2])
-            if not peer_ent or p not in rules_dict:  # 对等元素集合为空，或可利用规则集为空，认为是显著事件
+            if not peer_ent or p not in rules_dict:
                 out_score_snap.append(1)
                 continue
 
             peer_ent.add(o)
             peer_dict = {k: 0 for k in peer_ent}
             rule_list = rules_dict[p]
-            # 先只考虑长度为1的规则
+
             for rule in rule_list:
                 body_rel = rule['body_rels'][0]
                 rule_conf = rule['conf']
@@ -72,19 +72,19 @@ def calc_ent_out_score(data_snap_list: List[List[List[int]]], rules_dict: Dict[i
                     cond_o = his_quad_arr[:, 2] == peer
                     ts_body = list(his_quad_arr[cond_s & cond_body & cond_o, 3])
                     ts_head = list(his_quad_arr[cond_s & cond_p & cond_o, 3])
-                    if not ts_body:  # 没有规则主体，该规则无效
+                    if not ts_body:
                         continue
-                    ts_body = sorted(ts_body, reverse=True)  # 倒序
+                    ts_body = sorted(ts_body, reverse=True)
                     ts_head = sorted(ts_head, reverse=True)
                     body_idx, head_idx = 0, 0
                     len_body, len_head = len(ts_body), len(ts_head)
 
-                    # 计算规则主体和规则头部对的时态感知频次
+
                     while 1:
-                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                        if not ts_head:  # 没有规则头部，无需进行后面的计算
+                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                        if not ts_head:
                             break
-                        if body_rel == p:  # 单独考虑重复事件
+                        if body_rel == p:
                             while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                                 head_idx += 1
                         else:
@@ -100,7 +100,6 @@ def calc_ent_out_score(data_snap_list: List[List[List[int]]], rules_dict: Dict[i
                         if body_idx == len_body:
                             break
 
-            # 第二步：计算归一化评分
             key_array = np.array(list(peer_dict.keys()))
             values_array = np.array(list(peer_dict.values()))
             target_idx = np.where(key_array == o)[0]
@@ -111,7 +110,7 @@ def calc_ent_out_score(data_snap_list: List[List[List[int]]], rules_dict: Dict[i
 
             target_value = values_array_norm[target_idx]
             larger_array = values_array_norm[values_array_norm > target_value]
-            target_outstanding = np.sum(larger_array * (larger_array - target_value))  # outlyingness函数
+            target_outstanding = np.sum(larger_array * (larger_array - target_value))
             out_score_snap.append(target_outstanding)
         out_score.append(out_score_snap)
 
@@ -139,21 +138,20 @@ def calc_rel_out_score(data_snap_list: List[List[List[int]]], decay: int, his_le
             s, p, o, t = quad
             cond_s = his_quad_arr[:, 0] == s
             cond_o = his_quad_arr[:, 2] == o
-            peer_rel = set(his_quad_arr[cond_s & cond_o, 1])  # 对等元素集合
-            if not peer_rel:  # 对等元素集合为空，认为是显著事件
+            peer_rel = set(his_quad_arr[cond_s & cond_o, 1])
+            if not peer_rel:
                 out_score_snap.append(1)
                 continue
 
             peer_rel.add(p)
             peer_dict = {k: 0 for k in peer_rel}
-            # 只考虑重复事实
+
             for peer in peer_dict:
                 cond_peer = his_quad_arr[:, 1] == peer
                 ts_peer = his_quad_arr[cond_s & cond_peer & cond_o, 3]
                 score_peer = np.sum(np.exp(-1 * decay * (t - ts_peer)))
                 peer_dict[peer] = float(score_peer)
 
-            # 第二步：计算归一化评分
             key_array = np.array(list(peer_dict.keys()))
             values_array = np.array(list(peer_dict.values()))
             target_idx = np.where(key_array == p)[0]
@@ -164,7 +162,7 @@ def calc_rel_out_score(data_snap_list: List[List[List[int]]], decay: int, his_le
 
             target_value = values_array_norm[target_idx]
             larger_array = values_array_norm[values_array_norm > target_value]
-            target_outstanding = np.sum(larger_array * (larger_array - target_value))  # outlyingness函数
+            target_outstanding = np.sum(larger_array * (larger_array - target_value))
             out_score_snap.append(target_outstanding)
         out_score.append(out_score_snap)
 
@@ -192,15 +190,15 @@ def calc_ent_out_score_cuda(data_snap_list: List[List[List[int]]], rules_dict: D
             s, p, o, t = quad
             cond_s = his_quad_tensor[:, 0] == s
             cond_p = his_quad_tensor[:, 1] == p
-            peer_ent = set(his_quad_tensor[cond_s & cond_p, 2].tolist())  # 对等元素集合
-            if not peer_ent or p not in rules_dict:  # 对等元素集合为空，或可利用规则集为空，认为是显著事件
+            peer_ent = set(his_quad_tensor[cond_s & cond_p, 2].tolist())
+            if not peer_ent or p not in rules_dict:
                 out_score_snap.append(1)
                 continue
 
             peer_ent.add(o)
             peer_dict = {k: 0 for k in peer_ent}
             rule_list = rules_dict[p]
-            # 先只考虑长度为1的规则
+
             for rule in rule_list:
                 body_rel = rule['body_rels'][0]
                 rule_conf = rule['conf']
@@ -210,19 +208,19 @@ def calc_ent_out_score_cuda(data_snap_list: List[List[List[int]]], rules_dict: D
                     cond_o = his_quad_tensor[:, 2] == peer
                     ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
                     ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-                    if not ts_body:  # 没有规则主体，该规则无效
+                    if not ts_body:
                         continue
-                    ts_body = sorted(ts_body, reverse=True)  # 倒序
+                    ts_body = sorted(ts_body, reverse=True)
                     ts_head = sorted(ts_head, reverse=True)
                     body_idx, head_idx = 0, 0
                     len_body, len_head = len(ts_body), len(ts_head)
 
-                    # 计算规则主体和规则头部对的时态感知频次
+
                     while 1:
-                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                        if not ts_head:  # 没有规则头部，无需进行后面的计算
+                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                        if not ts_head:
                             break
-                        if body_rel == p:  # 单独考虑重复事件
+                        if body_rel == p:
                             while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                                 head_idx += 1
                         else:
@@ -238,7 +236,6 @@ def calc_ent_out_score_cuda(data_snap_list: List[List[List[int]]], rules_dict: D
                         if body_idx == len_body:
                             break
 
-            # 第二步：计算归一化评分
             key_tensor = torch.tensor(list(peer_dict.keys()))
             values_tensor = torch.tensor(list(peer_dict.values()))
             target_idx = torch.where(key_tensor == o)[0]
@@ -249,7 +246,7 @@ def calc_ent_out_score_cuda(data_snap_list: List[List[List[int]]], rules_dict: D
 
             target_value = values_tensor_norm[target_idx]
             larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
             out_score_snap.append(target_outstanding.item())
         out_score.append(out_score_snap)
 
@@ -277,21 +274,21 @@ def calc_rel_out_score_cuda(data_snap_list: List[List[List[int]]], decay: int, h
             s, p, o, t = quad
             cond_s = his_quad_tensor[:, 0] == s
             cond_o = his_quad_tensor[:, 2] == o
-            peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())  # 对等元素集合
-            if not peer_rel:  # 对等元素集合为空，认为是显著事件
+            peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())
+            if not peer_rel:
                 out_score_snap.append(1)
                 continue
 
             peer_rel.add(p)
             peer_dict = {k: 0 for k in peer_rel}
-            # 只考虑重复事实
+
             for peer in peer_dict:
                 cond_peer = his_quad_tensor[:, 1] == peer
                 ts_peer = his_quad_tensor[cond_s & cond_peer & cond_o, 3]
                 score_peer = torch.sum(torch.exp(-1 * decay * (t - ts_peer)))
                 peer_dict[peer] = float(score_peer)
 
-            # 第二步：计算归一化评分
+
             key_tensor = torch.tensor(list(peer_dict.keys()))
             values_tensor = torch.tensor(list(peer_dict.values()))
             target_idx = torch.where(key_tensor == p)[0]
@@ -302,7 +299,7 @@ def calc_rel_out_score_cuda(data_snap_list: List[List[List[int]]], decay: int, h
 
             target_value = values_tensor_norm[target_idx]
             larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
             out_score_snap.append(target_outstanding.item())
         out_score.append(out_score_snap)
 
@@ -330,21 +327,20 @@ def calc_rel_out_score_cuda_test(data_snap_list: List[List[List[int]]], decay: i
             s, p, o, t = quad
             cond_s = his_quad_tensor[:, 0] == s
             cond_o = his_quad_tensor[:, 2] == o
-            peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())  # 对等元素集合
-            if not peer_rel:  # 对等元素集合为空，认为是显著事件
+            peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())
+            if not peer_rel:
                 out_score_snap.append(1)
                 continue
 
             peer_rel.add(p)
             peer_dict = {k: 0 for k in peer_rel}
-            # 只考虑重复事实
+
             for peer in peer_dict:
                 cond_peer = his_quad_tensor[:, 1] == peer
                 ts_peer = his_quad_tensor[cond_s & cond_peer & cond_o, 3]
                 score_peer = torch.sum(torch.exp(-1 * decay * (t - ts_peer)))
                 peer_dict[peer] = float(score_peer)
 
-            # 第二步：计算归一化评分
             key_tensor = torch.tensor(list(peer_dict.keys()))
             values_tensor = torch.tensor(list(peer_dict.values()))
             target_idx = torch.where(key_tensor == p)[0]
@@ -355,7 +351,7 @@ def calc_rel_out_score_cuda_test(data_snap_list: List[List[List[int]]], decay: i
 
             target_value = values_tensor_norm[target_idx]
             larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
             out_score_snap.append(target_outstanding.item())
         out_score.append(out_score_snap)
 
@@ -383,11 +379,11 @@ def calc_ent_out_score_cuda_extend(data_snap_list: List[List[List[int]]], rules_
             s, p, o, t = quad
             cond_s = his_quad_tensor[:, 0] == s
 
-            if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+            if p not in rules_dict:
                 out_score_snap.append(1)
                 continue
 
-            # 根据所有支撑规则统计对等元素集合
+
             rule_list = rules_dict[p]
             cond_p = his_quad_tensor[:, 1] == p
             cond_rel = cond_p.clone()
@@ -395,14 +391,14 @@ def calc_ent_out_score_cuda_extend(data_snap_list: List[List[List[int]]], rules_
             for body_rel in body_rel_list:
                 cond_body_rel = his_quad_tensor[:, 1] == body_rel
                 cond_rel = cond_rel | cond_body_rel
-            peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-            if not peer_ent:  # 对等元素集合为空，认为是显著事件
+            peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+            if not peer_ent:
                 out_score_snap.append(1)
                 continue
 
             peer_ent.add(o)
             peer_dict = {k: 0 for k in peer_ent}
-            # 先只考虑长度为1的规则
+
             for rule in rule_list:
                 body_rel = rule['body_rels'][0]
                 rule_conf = rule['conf']
@@ -412,19 +408,19 @@ def calc_ent_out_score_cuda_extend(data_snap_list: List[List[List[int]]], rules_
                     cond_o = his_quad_tensor[:, 2] == peer
                     ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
                     ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-                    if not ts_body:  # 没有规则主体，该规则无效
+                    if not ts_body:
                         continue
-                    ts_body = sorted(ts_body, reverse=True)  # 倒序
+                    ts_body = sorted(ts_body, reverse=True)
                     ts_head = sorted(ts_head, reverse=True)
                     body_idx, head_idx = 0, 0
                     len_body, len_head = len(ts_body), len(ts_head)
 
-                    # 计算规则主体和规则头部对的时态感知频次
+
                     while 1:
-                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                        if not ts_head:  # 没有规则头部，无需进行后面的计算
+                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                        if not ts_head:
                             break
-                        if body_rel == p:  # 单独考虑重复事件
+                        if body_rel == p:
                             while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                                 head_idx += 1
                         else:
@@ -440,7 +436,7 @@ def calc_ent_out_score_cuda_extend(data_snap_list: List[List[List[int]]], rules_
                         if body_idx == len_body:
                             break
 
-            # 第二步：计算归一化评分
+
             key_tensor = torch.tensor(list(peer_dict.keys()))
             values_tensor = torch.tensor(list(peer_dict.values()))
             target_idx = torch.where(key_tensor == o)[0]
@@ -451,7 +447,7 @@ def calc_ent_out_score_cuda_extend(data_snap_list: List[List[List[int]]], rules_
 
             target_value = values_tensor_norm[target_idx]
             larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
             out_score_snap.append(target_outstanding.item())
         out_score.append(out_score_snap)
 
@@ -479,11 +475,11 @@ def calc_ent_out_score_cuda_extend_test(data_snap_list: List[List[List[int]]], r
             s, p, o, t = quad
             cond_s = his_quad_tensor[:, 0] == s
 
-            if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+            if p not in rules_dict:
                 out_score_snap.append(1)
                 continue
 
-            # 根据所有支撑规则统计对等元素集合
+
             rule_list = rules_dict[p]
             cond_p = his_quad_tensor[:, 1] == p
             cond_rel = cond_p.clone()
@@ -491,14 +487,14 @@ def calc_ent_out_score_cuda_extend_test(data_snap_list: List[List[List[int]]], r
             for body_rel in body_rel_list:
                 cond_body_rel = his_quad_tensor[:, 1] == body_rel
                 cond_rel = cond_rel | cond_body_rel
-            peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-            if not peer_ent:  # 对等元素集合为空，认为是显著事件
+            peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+            if not peer_ent:
                 out_score_snap.append(1)
                 continue
 
             peer_ent.add(o)
             peer_dict = {k: 0 for k in peer_ent}
-            # 先只考虑长度为1的规则
+
             for rule in rule_list:
                 body_rel = rule['body_rels'][0]
                 rule_conf = rule['conf']
@@ -508,19 +504,19 @@ def calc_ent_out_score_cuda_extend_test(data_snap_list: List[List[List[int]]], r
                     cond_o = his_quad_tensor[:, 2] == peer
                     ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
                     ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-                    if not ts_body:  # 没有规则主体，该规则无效
+                    if not ts_body:
                         continue
-                    ts_body = sorted(ts_body, reverse=True)  # 倒序
+                    ts_body = sorted(ts_body, reverse=True)
                     ts_head = sorted(ts_head, reverse=True)
                     body_idx, head_idx = 0, 0
                     len_body, len_head = len(ts_body), len(ts_head)
 
-                    # 计算规则主体和规则头部对的时态感知频次
+
                     while 1:
-                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                        if not ts_head:  # 没有规则头部，无需进行后面的计算
+                        peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                        if not ts_head:
                             break
-                        if body_rel == p:  # 单独考虑重复事件
+                        if body_rel == p:
                             while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                                 head_idx += 1
                         else:
@@ -536,7 +532,7 @@ def calc_ent_out_score_cuda_extend_test(data_snap_list: List[List[List[int]]], r
                         if body_idx == len_body:
                             break
 
-            # 第二步：计算归一化评分
+
             key_tensor = torch.tensor(list(peer_dict.keys()))
             values_tensor = torch.tensor(list(peer_dict.values()))
             target_idx = torch.where(key_tensor == o)[0]
@@ -547,7 +543,7 @@ def calc_ent_out_score_cuda_extend_test(data_snap_list: List[List[List[int]]], r
 
             target_value = values_tensor_norm[target_idx]
             larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+            target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
             out_score_snap.append(target_outstanding.item())
         out_score.append(out_score_snap)
 
@@ -672,7 +668,7 @@ if __name__ == '__main__':
 
     ent_num, rel_num = get_stat(dataset_path)
 
-    if args.only_out_analysis:  # 如果已经生成扩展后的数据集文件，则只要提取显著性评分即可
+    if args.only_out_analysis:
         setting_name = f'{args.conf_threshold}_{args.decay}_{args.his_len}_{args.obj_coeff}_{args.sub_coeff}_{args.rel_coeff}'
         out_score_file_path = os.path.join(dataset_path, setting_name, 'out_score_test.json')
         with open(out_score_file_path, 'r') as file:
@@ -680,25 +676,25 @@ if __name__ == '__main__':
         test_out_score = out_score_dict['test_out_score']
         update_out_score_to_dataset_test(dataset_path, setting_name, test_out_score)
     else:
-        # 得到所有样本及反向四元组
+
         train_snap_list, train_snap_list_reverse = get_time_snap_list(dataset_path, data_file='train.txt', rel_num=rel_num)
         valid_snap_list, valid_snap_list_reverse = get_time_snap_list(dataset_path, data_file='valid.txt', rel_num=rel_num)
         test_snap_list, test_snap_list_reverse = get_time_snap_list(dataset_path, data_file='test.txt', rel_num=rel_num)
         all_snap_list = train_snap_list + valid_snap_list + test_snap_list
         all_snap_list_reverse = train_snap_list_reverse + valid_snap_list_reverse + test_snap_list_reverse
 
-        # 得到规则
+
         rules_path = f'../output_rule/{args.dataset}/seed{args.seed}/{args.rules_file}'
         rule_lengths = args.rule_lengths
         rule_lengths = [rule_lengths] if (rule_lengths is int) else rule_lengths
         rules_dict = json.load(open(rules_path))
         rules_dict = {int(k): v for k, v in rules_dict.items()}
-        rules_dict = ra.filter_rules(  # 按照最小置信度和主体支持过滤规则，并删除没有规则后的键值对
+        rules_dict = ra.filter_rules(
             rules_dict, min_conf=args.conf_threshold, min_body_supp=2, rule_lengths=rule_lengths
         )
 
         test_start_id = len(train_snap_list) + len(valid_snap_list)
-        # 计算每个样本的显著性评分，限制历史时间戳长度
+
         if args.cuda:
             start_time_obj = datetime.now()
             print('calculate objects\' outstanding score...')

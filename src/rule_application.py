@@ -319,7 +319,6 @@ def get_candidates(
     return cands_dict
 
 
-# 记录所有查询及其候选实体到文件
 def save_candidates(
     rules_file, dir_path, all_candidates, rule_lengths, window, score_func_str
 ):

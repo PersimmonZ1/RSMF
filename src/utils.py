@@ -229,13 +229,13 @@ def stat_ranks_outstanding(rank_list, out_score, args):
 
     hits = [1, 3, 10]
 
-    mr = (weighted_score * total_rank.float()).sum()  # 重新加权
+    mr = (weighted_score * total_rank.float()).sum()
     mrr = (weighted_score * (1.0 / total_rank.float())).sum()
 
     hit_scores = []
     for hit in hits:
         hit_value = (total_rank <= hit).float()
-        weighted_count = (weighted_score * hit_value).sum()  # 先除以总数再乘，直接乘以权重
+        weighted_count = (weighted_score * hit_value).sum()
         hit_scores.append(round(weighted_count.item() * 100, 2))
 
     # return (mr.item(), mrr.item(), hit_scores, mrr_snapshot_list)
@@ -350,11 +350,10 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
 
     cond_s = his_quad_tensor[:, 0] == s
 
-    if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+    if p not in rules_dict:
         print("no rules for relation r\n")
         return
 
-    # 根据所有支撑规则统计对等元素集合
     rule_list = rules_dict[p]
     cond_p = his_quad_tensor[:, 1] == p
     cond_rel = cond_p.clone()
@@ -362,14 +361,13 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
     for body_rel in body_rel_list:
         cond_body_rel = his_quad_tensor[:, 1] == body_rel
         cond_rel = cond_rel | cond_body_rel
-    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-    if not peer_ent:  # 对等元素集合为空，认为是显著事件
+    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+    if not peer_ent:
         print(f'no peer_ent for entity {id2ent[o]}\n')
         return
 
     peer_ent.add(o)
     peer_dict = {k: 0 for k in peer_ent}
-    # 先只考虑长度为1的规则
     
     for rule in rule_list:
         body_rel = rule['body_rels'][0]
@@ -380,19 +378,18 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
 
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
-                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -408,7 +405,6 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
                 if body_idx == len_body:
                     break
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == o)[0]
@@ -419,7 +415,7 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
     print(f'Strikingness Score of entity {id2ent[o]}: {target_outstanding.item()}')
 
     sorted_peer_keys = sorted(peer_dict, key=lambda x: peer_dict[x], reverse=True)
@@ -438,18 +434,17 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
             rule_apply += 1
             print(f'  No.{id_rule + 1} rule Cond = {rule_conf}:')
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
             
             flag = True
             id_grounding = 0
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
                 if id_grounding >= 3:
                     break
@@ -462,10 +457,9 @@ def ent_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], rule
                     print(f'  {id2ent[s]}\t{id2rel[body_rel-rel_num]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p-rel_num]}\t{id2ent[peer]}\t{id2ts[time_head]}')
                 else:
                     print(f'  {id2ent[s]}\t{id2rel[body_rel]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p]}\t{id2ent[peer]}\t{id2ts[time_head]}')
-                # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -503,21 +497,19 @@ def rel_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], deca
 
     cond_s = his_quad_tensor[:, 0] == s
     cond_o = his_quad_tensor[:, 2] == o
-    peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())  # 对等元素集合
-    if not peer_rel:  # 对等元素集合为空，认为是显著事件
+    peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())
+    if not peer_rel:
         print(f'no peer_relation for relation {id2rel[p]}\n')
         return
 
     peer_rel.add(p)
     peer_dict = {k: 0 for k in peer_rel}
-    # 只考虑重复事实
     for peer in peer_dict:
         cond_peer = his_quad_tensor[:, 1] == peer
         ts_peer = his_quad_tensor[cond_s & cond_peer & cond_o, 3]
         score_peer = torch.sum(torch.exp(-1 * decay * (t - ts_peer)))
         peer_dict[peer] = float(score_peer)
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == p)[0]
@@ -528,7 +520,7 @@ def rel_context_retrieval(case_quad, data_snap_list: List[List[List[int]]], deca
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
     print(f'Strikingness Score of relation {id2rel[p]}: {target_outstanding.item()}')
 
     sorted_peer_keys = sorted(peer_dict, key=lambda x: peer_dict[x], reverse=True)
@@ -568,11 +560,10 @@ def calc_ent_score(case_quad, data_snap_list: List[List[List[int]]], rules_dict:
 
     cond_s = his_quad_tensor[:, 0] == s
 
-    if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+    if p not in rules_dict:
         # print("no rules for relation r\n")
         return 1.0
 
-    # 根据所有支撑规则统计对等元素集合
     rule_list = rules_dict[p]
     cond_p = his_quad_tensor[:, 1] == p
     cond_rel = cond_p.clone()
@@ -580,14 +571,13 @@ def calc_ent_score(case_quad, data_snap_list: List[List[List[int]]], rules_dict:
     for body_rel in body_rel_list:
         cond_body_rel = his_quad_tensor[:, 1] == body_rel
         cond_rel = cond_rel | cond_body_rel
-    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-    if not peer_ent:  # 对等元素集合为空，认为是显著事件
+    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+    if not peer_ent:
         # print(f'no peer_ent for entity {id2ent[o]}\n')
         return 1.0
 
     peer_ent.add(o)
     peer_dict = {k: 0 for k in peer_ent}
-    # 先只考虑长度为1的规则
     
     for rule in rule_list:
         body_rel = rule['body_rels'][0]
@@ -598,19 +588,18 @@ def calc_ent_score(case_quad, data_snap_list: List[List[List[int]]], rules_dict:
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
 
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
-                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -626,7 +615,6 @@ def calc_ent_score(case_quad, data_snap_list: List[List[List[int]]], rules_dict:
                 if body_idx == len_body:
                     break
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == o)[0]
@@ -637,7 +625,7 @@ def calc_ent_score(case_quad, data_snap_list: List[List[List[int]]], rules_dict:
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
     target_outstanding = target_outstanding.item()
     
     return target_outstanding
@@ -661,21 +649,19 @@ def calc_rel_score(case_quad, data_snap_list: List[List[List[int]]], decay: int,
 
     cond_s = his_quad_tensor[:, 0] == s
     cond_o = his_quad_tensor[:, 2] == o
-    peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())  # 对等元素集合
-    if not peer_rel:  # 对等元素集合为空，认为是显著事件
+    peer_rel = set(his_quad_tensor[cond_s & cond_o, 1].tolist())
+    if not peer_rel:
         # print(f'no peer_relation for relation {id2rel[p]}\n')
         return 1.0
 
     peer_rel.add(p)
     peer_dict = {k: 0 for k in peer_rel}
-    # 只考虑重复事实
     for peer in peer_dict:
         cond_peer = his_quad_tensor[:, 1] == peer
         ts_peer = his_quad_tensor[cond_s & cond_peer & cond_o, 3]
         score_peer = torch.sum(torch.exp(-1 * decay * (t - ts_peer)))
         peer_dict[peer] = float(score_peer)
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == p)[0]
@@ -686,7 +672,7 @@ def calc_rel_score(case_quad, data_snap_list: List[List[List[int]]], decay: int,
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value))
     target_outstanding = target_outstanding.item()
 
     return target_outstanding
@@ -710,11 +696,10 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
 
     cond_s = his_quad_tensor[:, 0] == s
 
-    if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+    if p not in rules_dict:
         print("no rules for relation r\n")
         return
 
-    # 根据所有支撑规则统计对等元素集合
     rule_list = rules_dict[p]
     cond_p = his_quad_tensor[:, 1] == p
     cond_rel = cond_p.clone()
@@ -722,14 +707,13 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
     for body_rel in body_rel_list:
         cond_body_rel = his_quad_tensor[:, 1] == body_rel
         cond_rel = cond_rel | cond_body_rel
-    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-    if not peer_ent:  # 对等元素集合为空，认为是显著事件
+    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+    if not peer_ent:
         print(f'no peer_ent for entity {id2ent[o]}\n')
         return
 
     peer_ent.add(o)
     peer_dict = {k: 0 for k in peer_ent}
-    # 先只考虑长度为1的规则
     
     for rule in rule_list:
         body_rel = rule['body_rels'][0]
@@ -740,19 +724,18 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
 
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
-                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -768,7 +751,6 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
                 if body_idx == len_body:
                     break
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == o)[0]
@@ -779,7 +761,7 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value)).item()  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value)).item()
 
     sorted_peer_keys = sorted(peer_dict, key=lambda x: peer_dict[x], reverse=True)
     values_tensor_norm_sort, _ = torch.sort(values_tensor_norm, descending=False)
@@ -804,16 +786,15 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
             
             flag = True
             id_grounding = 0
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
                 if flag:
                     rule_grounding = [id2ent[s], id2rel[body_rel], id2ent[peer], id2ts[ts_body[body_idx]]]
@@ -829,10 +810,10 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
                     rule_grounding = [rule_body, rule_head]
                     peer_context.append(rule_grounding)
                     # print(f'  {id2ent[s]}\t{id2rel[body_rel]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p]}\t{id2ent[peer]}\t{id2ts[time_head]}')
-                # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -872,16 +853,15 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
         cond_o = his_quad_tensor[:, 2] == peer
         ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
         ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-        if not ts_body:  # 没有规则主体，该规则无效
+        if not ts_body:
             continue
-        ts_body = sorted(ts_body, reverse=True)  # 倒序
+        ts_body = sorted(ts_body, reverse=True)
         ts_head = sorted(ts_head, reverse=True)
         body_idx, head_idx = 0, 0
         len_body, len_head = len(ts_body), len(ts_head)
         
         flag = True
         id_grounding = 0
-        # 计算规则主体和规则头部对的时态感知频次
         while 1:
             if flag:
                 rule_grounding = [id2ent[s], id2rel[body_rel], id2ent[peer], id2ts[ts_body[body_idx]]]
@@ -897,10 +877,10 @@ def get_ent_context_lower(case_quad, data_snap_list: List[List[List[int]]], rule
                 rule_grounding = [rule_body, rule_head]
                 target_context.append(rule_grounding)
                 # print(f'  {id2ent[s]}\t{id2rel[body_rel]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p]}\t{id2ent[peer]}\t{id2ts[time_head]}')
-            # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-            if not ts_head:  # 没有规则头部，无需进行后面的计算
+            # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+            if not ts_head:
                 break
-            if body_rel == p:  # 单独考虑重复事件
+            if body_rel == p:
                 while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                     head_idx += 1
             else:
@@ -940,11 +920,10 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
 
     cond_s = his_quad_tensor[:, 0] == s
 
-    if p not in rules_dict:  # 可利用规则集为空，认为是显著事件
+    if p not in rules_dict:
         # print("no rules for relation r\n")
         return {}
 
-    # 根据所有支撑规则统计对等元素集合
     rule_list = rules_dict[p]
     cond_p = his_quad_tensor[:, 1] == p
     cond_rel = cond_p.clone()
@@ -952,14 +931,13 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
     for body_rel in body_rel_list:
         cond_body_rel = his_quad_tensor[:, 1] == body_rel
         cond_rel = cond_rel | cond_body_rel
-    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())  # 对等元素集合
-    if not peer_ent:  # 对等元素集合为空，认为是显著事件
+    peer_ent = set(his_quad_tensor[cond_s & cond_rel, 2].tolist())
+    if not peer_ent:
         # print(f'no peer_ent for entity {id2ent[o]}\n')
         return {}
 
     peer_ent.add(o)
     peer_dict = {k: 0 for k in peer_ent}
-    # 先只考虑长度为1的规则
     
     for rule in rule_list:
         body_rel = rule['body_rels'][0]
@@ -970,19 +948,18 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
 
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
-                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:
@@ -998,7 +975,6 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
                 if body_idx == len_body:
                     break
 
-    # 第二步：计算归一化评分
     key_tensor = torch.tensor(list(peer_dict.keys()))
     values_tensor = torch.tensor(list(peer_dict.values()))
     target_idx = torch.where(key_tensor == o)[0]
@@ -1009,7 +985,7 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
 
     target_value = values_tensor_norm[target_idx]
     larger_tensor = values_tensor_norm[values_tensor_norm > target_value]
-    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value)).item()  # outlyingness函数
+    target_outstanding = torch.sum(larger_tensor * (larger_tensor - target_value)).item()
 
     sorted_peer_keys = sorted(peer_dict, key=lambda x: peer_dict[x], reverse=True)
     values_tensor_norm_sort, _ = torch.sort(values_tensor_norm, descending=True)
@@ -1029,16 +1005,15 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
         cond_o = his_quad_tensor[:, 2] == peer
         ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
         ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-        if not ts_body:  # 没有规则主体，该规则无效
+        if not ts_body:
             continue
-        ts_body = sorted(ts_body, reverse=True)  # 倒序
+        ts_body = sorted(ts_body, reverse=True)
         ts_head = sorted(ts_head, reverse=True)
         body_idx, head_idx = 0, 0
         len_body, len_head = len(ts_body), len(ts_head)
         
         flag = True
         id_grounding = 0
-        # 计算规则主体和规则头部对的时态感知频次
         while 1:
             if flag:
                 rule_grounding = [id2ent[s], id2rel[body_rel], id2ent[peer], id2ts[ts_body[body_idx]]]
@@ -1054,10 +1029,10 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
                 rule_grounding = [rule_body, rule_head]
                 target_context.append(rule_grounding)
                 # print(f'  {id2ent[s]}\t{id2rel[body_rel]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p]}\t{id2ent[peer]}\t{id2ts[time_head]}')
-            # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-            if not ts_head:  # 没有规则头部，无需进行后面的计算
+            # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+            if not ts_head:
                 break
-            if body_rel == p:  # 单独考虑重复事件
+            if body_rel == p:
                 while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                     head_idx += 1
             else:
@@ -1089,16 +1064,15 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
             cond_o = his_quad_tensor[:, 2] == peer
             ts_body = his_quad_tensor[cond_s & cond_body & cond_o, 3].tolist()
             ts_head = his_quad_tensor[cond_s & cond_p & cond_o, 3].tolist()
-            if not ts_body:  # 没有规则主体，该规则无效
+            if not ts_body:
                 continue
-            ts_body = sorted(ts_body, reverse=True)  # 倒序
+            ts_body = sorted(ts_body, reverse=True)
             ts_head = sorted(ts_head, reverse=True)
             body_idx, head_idx = 0, 0
             len_body, len_head = len(ts_body), len(ts_head)
             
             flag = True
             id_grounding = 0
-            # 计算规则主体和规则头部对的时态感知频次
             while 1:
                 if flag:
                     rule_grounding = [id2ent[s], id2rel[body_rel], id2ent[peer], id2ts[ts_body[body_idx]]]
@@ -1114,10 +1088,10 @@ def get_ent_context_higher(case_quad, data_snap_list: List[List[List[int]]], rul
                     rule_grounding = [rule_body, rule_head]
                     peer_context.append(rule_grounding)
                     # print(f'  {id2ent[s]}\t{id2rel[body_rel]}\t{id2ent[peer]}\t{id2ts[ts_body[body_idx]]} --------> {id2ent[s]}\t{id2rel[p]}\t{id2ent[peer]}\t{id2ts[time_head]}')
-                # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))  # 第一步；对等元素显著评分计算
-                if not ts_head:  # 没有规则头部，无需进行后面的计算
+                # peer_dict[peer] += rule_conf * math.exp(-1 * decay * (t - ts_body[body_idx]))
+                if not ts_head:
                     break
-                if body_rel == p:  # 单独考虑重复事件
+                if body_rel == p:
                     while head_idx < len_head and ts_body[body_idx] <= ts_head[head_idx]:
                         head_idx += 1
                 else:

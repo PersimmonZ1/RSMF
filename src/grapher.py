@@ -21,21 +21,21 @@ class Grapher(object):
         self.relation2id = self.relation2id_old.copy()
         counter = len(self.relation2id_old)
         for relation in self.relation2id_old:
-            self.relation2id["_" + relation] = counter  # Inverse relation
+            self.relation2id["_" + relation] = counter
             counter += 1
         self.ts2id = json.load(open(dataset_dir + "ts2id.json", encoding="utf-8"))
         self.id2entity = dict([(v, k) for k, v in self.entity2id.items()])
         self.id2relation = dict([(v, k) for k, v in self.relation2id.items()])
         self.id2ts = dict([(v, k) for k, v in self.ts2id.items()])
 
-        self.inv_relation_id = dict()  # 存储id为i的关系对应的反向关系的id
+        self.inv_relation_id = dict()
         num_relations = len(self.relation2id_old)
         for i in range(num_relations):
             self.inv_relation_id[i] = i + num_relations
         for i in range(num_relations, num_relations * 2):
             self.inv_relation_id[i] = i % num_relations
 
-        self.train_idx = self.create_store("train_raw.txt")  # 二维id数组
+        self.train_idx = self.create_store("train_raw.txt")
         self.valid_idx = self.create_store("valid_raw.txt")
         self.test_idx = self.create_store("test_raw.txt")
         self.all_idx = np.vstack((self.train_idx, self.valid_idx, self.test_idx))
@@ -56,9 +56,9 @@ class Grapher(object):
 
         with open(self.dataset_dir + file, "r", encoding="utf-8") as f:
             quads = f.readlines()
-        store = self.split_quads(quads)  # 得到四元组列表
-        store_idx = self.map_to_idx(store)  # 得到转换为id后的四元组
-        store_idx = self.add_inverses(store_idx)  # 得到反向四元组，注意相同时间戳的反向四元组并不在一起，后续可能要修改
+        store = self.split_quads(quads)
+        store_idx = self.map_to_idx(store)
+        store_idx = self.add_inverses(store_idx)
 
         return store_idx
 
@@ -130,13 +130,5 @@ class Grapher(object):
             quad_list[idx] = np.vstack((snap, inv_snap))
 
         quad_idx = np.vstack(quad_list)
-
-        # 相同时间戳的正方向四元组不在一起
-        # subs = quads_idx[:, 2]
-        # rels = [self.inv_relation_id[x] for x in quads_idx[:, 1]]
-        # objs = quads_idx[:, 0]
-        # tss = quads_idx[:, 3]
-        # inv_quads_idx = np.column_stack((subs, rels, objs, tss))
-        # quads_idx = np.vstack((quads_idx, inv_quads_idx))
 
         return quad_idx

@@ -20,10 +20,10 @@ class Temporal_Walk(object):
         self.learn_data = learn_data
         self.inv_relation_id = inv_relation_id
         self.transition_distr = transition_distr
-        self.neighbors = store_neighbors(learn_data)  # 字典，每个头实体所参与的四元组数组
-        self.edges = store_edges(learn_data)  # 字典，每个关系所参与的四元组数组
+        self.neighbors = store_neighbors(learn_data)
+        self.edges = store_edges(learn_data)
 
-    # 根据关系id随机采样一条边
+
     def sample_start_edge(self, rel_idx):
         """
         Define start edge distribution.
@@ -40,7 +40,7 @@ class Temporal_Walk(object):
 
         return start_edge
 
-    # 根据采样的方法从已经过滤完的边中，选择一条边
+
     def sample_next_edge(self, filtered_edges, cur_ts):
         """
         Define next edge distribution.
@@ -63,12 +63,12 @@ class Temporal_Walk(object):
                 next_edge = filtered_edges[
                     np.random.choice(range(len(filtered_edges)), p=prob)
                 ]
-            except ValueError:  # All timestamps are far away
+            except ValueError:
                 next_edge = filtered_edges[np.random.choice(len(filtered_edges))]
 
         return next_edge
 
-    # 根据当前边的尾实体和时间戳过滤边，删除反向边并采样一条边，如果是最后一条边特殊采样
+
     def transition_step(self, cur_node, cur_ts, prev_edge, start_node, step, L):
         """
         Sample a neighboring edge given the current node and timestamp.
@@ -95,7 +95,6 @@ class Temporal_Walk(object):
             filtered_edges = next_edges[next_edges[:, 3] < cur_ts]
         else:  # The next timestamp should be smaller than or equal to the current timestamp
             filtered_edges = next_edges[next_edges[:, 3] <= cur_ts]
-            # Delete inverse edge，同一时间戳下完全相同的边在游走中没有意义，不同时间戳可以视作事实的重复发生导致新事实的发生
             inv_edge = [
                 cur_node,
                 self.inv_relation_id[prev_edge[1]],
@@ -103,7 +102,7 @@ class Temporal_Walk(object):
                 cur_ts,
             ]
             row_idx = np.where(np.all(filtered_edges == inv_edge, axis=1))
-            filtered_edges = np.delete(filtered_edges, row_idx, axis=0)  # 删除当前边的反向边，时间戳也要相同
+            filtered_edges = np.delete(filtered_edges, row_idx, axis=0)
 
         if step == L - 1:  # Find an edge that connects to the source of the walk
             filtered_edges = filtered_edges[filtered_edges[:, 2] == start_node]
@@ -115,7 +114,6 @@ class Temporal_Walk(object):
 
         return next_edge
 
-    # 先根据关系id采样一条起始边，再采样符合条件的L-1条边，walk记录时态随机游走中的实体，关系，时间戳
     def sample_walk(self, L, rel_idx):
         """
         Try to sample a cyclic temporal random walk of length L (for a rule of length L-1).
@@ -131,7 +129,7 @@ class Temporal_Walk(object):
 
         walk_successful = True
         walk = dict()
-        prev_edge = self.sample_start_edge(rel_idx)  # 采样一条边，即一个相关四元组
+        prev_edge = self.sample_start_edge(rel_idx)
         start_node = prev_edge[0]
         cur_node = prev_edge[2]
         cur_ts = prev_edge[3]
@@ -140,7 +138,7 @@ class Temporal_Walk(object):
         walk["timestamps"] = [cur_ts]
 
         for step in range(1, L):
-            next_edge = self.transition_step(  # 采样一条符合条件的边
+            next_edge = self.transition_step(
                 cur_node, cur_ts, prev_edge, start_node, step, L
             )
             if len(next_edge):
@@ -176,7 +174,6 @@ def store_neighbors(quads):
     return neighbors
 
 
-# 保存四元组中所有关系对应的边
 def store_edges(quads):
     """
     Store all edges for each relation.

@@ -25,7 +25,7 @@ class Rule_Learner(object):
         self.inv_relation_id = inv_relation_id
 
         self.found_rules = []
-        self.rules_dict = dict()  # 以关系id为键，记录关系对应规则的相关信息
+        self.rules_dict = dict()
         self.output_dir = f'../output_rule/{dataset}'
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -49,11 +49,11 @@ class Rule_Learner(object):
 
         rule = dict()
         rule["head_rel"] = int(walk["relations"][0])
-        rule["body_rels"] = [  # 规则主体使用反向规则
+        rule["body_rels"] = [
             self.inv_relation_id[x] for x in walk["relations"][1:][::-1]
         ]
         rule["var_constraints"] = self.define_var_constraints(
-            walk["entities"][1:][::-1]  # 实体逆序排序，和规则一致
+            walk["entities"][1:][::-1]
         )
 
         if rule not in self.found_rules:
@@ -67,8 +67,7 @@ class Rule_Learner(object):
             if rule["conf"]:
                 self.update_rules_dict(rule)
 
-    # 得到时态随机游走中重复出现过的实体的索引列表，即哪些索引的实体要求相同，从小到大排序
-    # 虽然在应用规则时实体表示是变量，但是如果随机游走中出现相同的实体要加约束
+
     def define_var_constraints(self, entities):
         """
         Define variable constraints, i.e., state the indices of reoccurring entities in a walk.
@@ -88,7 +87,6 @@ class Rule_Learner(object):
 
         return sorted(var_constraints)
 
-    # 对单条规则随机采样，计算置信度
     def estimate_confidence(self, rule, num_samples=500):
         """
         Estimate the confidence of the rule by sampling bodies and checking the rule support.
@@ -106,7 +104,6 @@ class Rule_Learner(object):
 
         all_bodies = []
         for _ in range(num_samples):
-            # 根据规则体采样，得到实体时间戳列表
             sample_successful, body_ents_tss = self.sample_body(
                 rule["body_rels"], rule["var_constraints"]
             )
@@ -124,7 +121,6 @@ class Rule_Learner(object):
 
         return confidence, rule_support, body_support
 
-    # 根据规则体采样，返回按照实体、时间戳排序的列表
     def sample_body(self, body_rels, var_constraints):
         """
         Sample a walk according to the rule body.
@@ -166,7 +162,6 @@ class Rule_Learner(object):
                 sample_successful = False
                 break
 
-        # 采样的边要满足实体约束
         if sample_successful and var_constraints:
             # Check variable constraints
             body_var_constraints = self.define_var_constraints(body_ents_tss[::2])
@@ -175,7 +170,6 @@ class Rule_Learner(object):
 
         return sample_successful, body_ents_tss
 
-    # 计算规则置信度
     def calculate_rule_support(self, unique_bodies, head_rel):
         """
         Calculate the rule support. Check for each body if there is a timestamp
@@ -219,7 +213,6 @@ class Rule_Learner(object):
         except KeyError:
             self.rules_dict[rule["head_rel"]] = [rule]
 
-    # 讲每个关系的所有规则按置信度降序排序
     def sort_rules_dict(self):
         """
         Sort the found rules for each head relation by decreasing confidence.
@@ -261,7 +254,6 @@ class Rule_Learner(object):
         with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as fout:
             json.dump(rules_dict, fout)
 
-    # 将规则以文字形式记录到文件中
     def save_rules_verbalized(
         self, dt, rule_lengths, num_walks, transition_distr, seed
     ):
@@ -294,7 +286,6 @@ class Rule_Learner(object):
             fout.write(rules_str)
 
 
-# 将单条规则的文字信息记录到字符串中，X表示对实体的限制，T表示对时间戳的限制
 def verbalize_rule(rule, id2relation):
     """
     Verbalize the rule to be in a human-readable format.
@@ -307,10 +298,9 @@ def verbalize_rule(rule, id2relation):
         rule_str (str): human-readable rule
     """
 
-    # 得到二维列表，指示规则中的相同实体
     if rule["var_constraints"]:
         var_constraints = rule["var_constraints"]
-        constraints = [x for sublist in var_constraints for x in sublist]  # 一维列表
+        constraints = [x for sublist in var_constraints for x in sublist]
         for i in range(len(rule["body_rels"]) + 1):
             if i not in constraints:
                 var_constraints.append([i])
@@ -319,7 +309,7 @@ def verbalize_rule(rule, id2relation):
         var_constraints = [[x] for x in range(len(rule["body_rels"]) + 1)]
 
     rule_str = "{0:8.6f}  {1:4}  {2:4}  {3}(X0,X{4},T{5}) <- "
-    obj_idx = [  # 规则头宾语实体id
+    obj_idx = [
         idx
         for idx in range(len(var_constraints))
         if len(rule["body_rels"]) in var_constraints[idx]
@@ -367,4 +357,4 @@ def rules_statistics(rules_dict):
     for rel in rules_dict:
         lengths += [len(x["body_rels"]) for x in rules_dict[rel]]
     rule_lengths = [(k, v) for k, v in Counter(lengths).items()]
-    print("Number of rules by length: ", sorted(rule_lengths))  # 不同长度的规则数目
+    print("Number of rules by length: ", sorted(rule_lengths))
